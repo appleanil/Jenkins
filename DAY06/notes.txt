@@ -129,6 +129,23 @@ post {
 }
 
 
+8. Add code for when we can approval
+====================================
+
+yakkdaina paste cheychu for example maven after, maven before ,nexus, sonarqube main imp is to add approval stage is end of previous stage
+
+stage('Approval') {
+            steps {
+                script {
+                    slackSend(channel: env.SLACK_CHANNEL, message: "🟡 *Build waiting for approval* on job `${env.JOB_NAME}` (#${env.BUILD_NUMBER}) by ${env.BUILD_USER_ID}")
+                    timeout(time: 2, unit: 'MINUTES') {
+                        input message: 'Approve deployment?', ok: 'Approve ✅'
+                    }
+                }
+            }
+        }
+
+
 
 
 
