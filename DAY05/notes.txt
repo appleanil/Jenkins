@@ -79,7 +79,7 @@ node {
 
 
 
-
+git branch: 'anil-test', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'  for my pratcise its dumpy
 Blog url:
 
 https://blog.kkdevops.com/jenkins-scripted-pipeline-a-complete-step-by-step-guide-for-real-ci-cd/
