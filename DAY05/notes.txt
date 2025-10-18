@@ -20,9 +20,10 @@ node {
 
 node {
     stage ('Git check-out') {
+        //echo "we can write anuthing to meaningful message its optional"
         goto pipeline syntax-->select snippet generator-->paste git url-->copy the URL and paste in this line
     }  //stage ending
-} for the best practices add //node ending
+} //for the best practices add node ending
 
 
 3. Apply in job by PIPELINE  by MAVEN
@@ -32,6 +33,7 @@ node {
     //before MAVEN BUILD U MUST ADD STAGE ONE IS GIT CHECK-OUT
    def mavenHome=tool name: "maven-3.9.9"
     stage ('Maven Build') {
+        //echo "we can write anuthing to meaningful message its optional"
         sh "${mavenHome}/bin/mvn clean package"
     }  //stage ending
 } //for the best practices add node ending
@@ -43,6 +45,7 @@ node {
 //before sonarqube U MUST ADD STAGE ONE IS GIT CHECK-OUT, MAVEN BUILD
 node {
     stage('SonarQube Report') {
+    //echo "we can write anuthing to meaningful message its optional"
     sh "${mavenHome}/bin/mvn sonar:sonar"
   }
 }
@@ -52,6 +55,7 @@ node {
 //before sonarqube U MUST ADD STAGE ONE IS GIT CHECK-OUT, MAVEN BUILD, SONARQUBE REPORT
 node
  stage('Deploy to Tomcat')  {
+//echo "we can write anuthing to meaningful message its optional"
       sh """
  curl -u admin:apple \
 --upload-file /var/lib/jenkins/workspace/jio-scripted-way-PL/target/maven-web-application.war \
@@ -66,6 +70,7 @@ node
 //before sonarqube U MUST ADD STAGE ONE IS GIT CHECK-OUT, MAVEN BUILD, SONARQUBE REPORT, DEPLOY TO TOMCAT
 node {
  stage('BACKUP TO NEXUS') {
+    //echo "we can write anuthing to meaningful message its optional"
      sh "${mavenHome}/bin/mvn clean deploy"
   }
 }
