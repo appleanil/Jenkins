@@ -1,3 +1,144 @@
+1. Basic Declartive pipeline syntax
+===================================
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                git url
+            } //best practices add comments for step ending
+        } //best practice add comments for stage ending
+    } //best practices add comments for stages ending
+}   //best practices add comments for pipeline ending
+
+
+2. Apply in Git Check-out Declartive Pipeline syntax
+====================================================
+
+pipeline {
+    agent any
+        stages {
+            stage ('Git Check-out') {
+                steps {
+                    git branch: 'anil-test', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'     // git url paste it
+                }
+            }
+        }
+    }
+
+3. Apply in Maven Build Declartive Pipeline syntax
+==================================================
+
+pipeline {
+    agent any 
+    tools {
+    maven "maven-3.9.9"
+    }
+        stages {
+            stage ('Maven Bulid') {
+                steps {
+                    sh "mvn clean package"
+                }
+            }
+        }
+    }
+
+
+4. Apply in SonarQube Report Declartive Pipeline syntax
+=======================================================
+
+pipepline {
+    agent any
+    tools {
+    maven "maven-3.9.9"
+    }
+        stages {
+            stage ('SonarQube Report') {
+                steps {
+                    sh "mvn clean sonar:sonar"
+                }
+            }
+        }
+    }
+
+
+5. Apply in Backup to Nexus Declartive Pipeline syntax
+=======================================================
+
+pipepline {
+    agent any
+    tools {
+    maven "maven-3.9.9"
+    }
+        stages {
+            stage ('Backup to Nexus') {
+                steps {
+                    sh "mvn clean deploy"
+                }
+            }
+        }
+    }
+
+
+6. Apply in Deploy to Tomcat Declartive Pipeline syntax
+=======================================================
+
+pipepline {
+    agent any
+    tools {
+    maven "maven-3.9.9"
+    }
+        stages {
+            stage ('Backup to Nexus') {
+                steps {
+                    sh """
+            curl -u admin:apple \
+            --upload-file /var/lib/jenkins/workspace/jio-Declarative-PL-dev/target/maven-web-application.war \
+            "http://13.201.194.180:8080/manager/text/deploy?path=/maven-web-application&update=true"
+            """
+                }
+            }
+        }
+    }
+
+
+
+7. To add slack notification default function
+=============================================
+
+post {
+  success {
+
+    script
+    {
+     notifyBuild(currentBuild.result)
+    }
+    
+  }
+  failure {
+
+  script
+  {
+    notifyBuild(currentBuild.result)
+
+  }
+   
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 pipeline {
     agent any
     tools
