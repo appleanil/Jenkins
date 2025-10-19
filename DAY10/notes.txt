@@ -155,7 +155,7 @@ pipeline {
 step 4:
 =======
 
-@Library('SharedLibKKFunda') _
+@Library('SharedlibKKFunda') _
 
 pipeline {
     agent any
