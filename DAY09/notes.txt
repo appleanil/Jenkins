@@ -1,1 +1,64 @@
 https://blog.kkdevops.com/jenkins-ci-cd-upstream-downstream-triggers-parallel-execution-shared-libraries/
+
+
+1. DEV
+======
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                
+                git branch: 'dev', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "⚙️ Running Maven build..."
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('stg') {
+    steps {
+        build job: 'stg'
+    }
+}
+}
+}
+
+
+
+
+2.STG
+=====
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'stg', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "⚙️ Running Maven build..."
+                sh 'mvn clean package'
+            }
+        }
+}
+}
+
