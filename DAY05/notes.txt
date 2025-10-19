@@ -2,6 +2,7 @@ Blog url:
 
 https://blog.kkdevops.com/jenkins-scripted-pipeline-a-complete-step-by-step-guide-for-real-ci-cd/
 
+Deniki kuda manam Slack notification set cheyali manage jenkins-->system-->goto Slack configration(Cltrl+f slack)
 
 node
 {
