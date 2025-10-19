@@ -26,6 +26,61 @@ pipeline {
             }
         }
 
+
+
+
+3.PARALLEL JOBS
+===============
+
+pipeline {
+    agent any
+
+    tools {
+        maven 'maven-3.9.9'
+    }
+
+    stages {
+
+        // Stage 1: Checkout
+        stage('Checkout') {
+            steps {
+                echo "📦 Checking out code..."
+                git branch: 'anil-env', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
+            }
+        }
+
+        // Stage 2: Build & Sonar in parallel
+        stage('Build and Sonar in Parallel') {
+            parallel {
+                stage('Maven Build & SonarQube') {
+                    steps {
+                        echo "⚙️ Running Maven build..."
+                        sh 'mvn clean sonar:sonar package'
+                    }
+                }
+            }
+        }
+
+        // Stage 3: Nexus Deploy & Tomcat Deploy in parallel
+        stage('Nexus and Tomcat Deploy in Parallel') {
+            parallel {
+                stage('Nexus Deploy') {
+                    steps {
+                        echo "📦 Deploying to Nexus..."
+                        sh 'mvn clean deploy'
+                        sh '''
+                            curl -u admin:apple \
+                            --upload-file /var/lib/jenkins/workspace/Anil-Pipeline-Job/target/maven-web-application.war \
+                            "http://13.233.104.113:9090/manager/text/deploy?path=/maven-web-application&update=true"
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}
+
+
         stage('stg') {
     steps {
         build job: 'stg'
