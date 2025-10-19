@@ -155,6 +155,8 @@ pipeline {
 step 4:
 =======
 
+IN JENKINS CONFIGRATION WE MUST GIVE SAME SHAREDLIBKKFUNDA AND IN PIPELINE ALSO SAME DNT GIVE DIFFERENT
+
 @Library('SharedlibKKFunda') _
 
 pipeline {
