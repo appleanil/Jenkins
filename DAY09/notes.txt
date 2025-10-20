@@ -2,6 +2,7 @@ https://blog.kkdevops.com/jenkins-ci-cd-upstream-downstream-triggers-parallel-ex
 
 UPSTREAM AND DOWNSTREAM JOBS
 ============================
+ANTE OOKA JOB RUN INA AFTER NEXT JOB RUN AVVALI FOR EXAMPLE 1.DEV JOB SUCCESSFULL GA RUN INDI NEXT 2.STG JOB SUCCESSFULL GA RUN AND FINAL 3. UAT KUDA SUCCESSFULL GA RUN AVVALI.
 
 1. DEV
 ======
