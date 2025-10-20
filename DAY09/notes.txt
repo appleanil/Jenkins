@@ -99,8 +99,8 @@ pipeline {
 
 
 
-3.PARALLEL JOBS
-===============
+3.PARALLEL JOBS TO REDUCE TO THE TIME MAVEN AND SONARQUBE OKKATE STAGE LO AND NEXUS AND TOMCAT VERE LO
+======================================================================================================
 
 pipeline {
     agent any
