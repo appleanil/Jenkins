@@ -102,49 +102,74 @@ pipeline {
 3.PARALLEL JOBS TO REDUCE TO THE TIME MAVEN AND SONARQUBE OKKATE STAGE LO AND NEXUS AND TOMCAT VERE LO
 ======================================================================================================
 
+
+1.PARALLEL JOBS FOR MAVEN AND SONARQUBE PIPELINE FOR JUST ADD PARELLEL FUNCTION parellel()
+==========================================================================================
+
 pipeline {
-    agent any
+    agent any  // This means the pipeline can run on any available Jenkins agent
 
     tools {
-        maven 'maven-3.9.9'
+        maven 'maven-3.9.9'   // Use Maven 3.9.9 tool configured in Jenkins
     }
 
     stages {
-
-        // Stage 1: Checkout
-        stage ('Checkout') {
+        // Stage 1: Checkout the code from GitHub
+        stage('Checkout') {
             steps {
-                echo "📦 Checking out code..."
-                git branch: 'anil-env', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
+                git branch: 'anil-free', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
             }
         }
 
-        // Stage 2: Build & Sonar in parallel
-        stage ('Build and Sonar in Parallel') {
-            parallel {
-                stage ('Maven Build & SonarQube') {
-                    steps {
-                        echo "⚙️ Running Maven build..."
-                        sh 'mvn clean sonar:sonar package'
+        // Stage 2: Maven Build and SonarQube Report (Run in parallel)
+        stage('Maven Build and SonarQube') {
+            steps {
+                parallel (
+                    "Maven Build": {
+                        sh "mvn clean package"  // Run Maven build
+                    },
+                    "SonarQube Report": {
+                        sh "mvn sonar:sonar"  // Run Sonar scan
                     }
-                }
+                )
+            }
+        }
+    }
+}
+
+
+2.PARELLEL JOBS FOR NEXUS AND TOMCAT PIPELINE FOR JUST ADD PARELLEL FUNCTION parellel()
+=======================================================================================
+
+pipeline {
+    agent any  // This means the pipeline can run on any available Jenkins agent
+
+    tools {
+        maven 'maven-3.9.9'   // Use Maven 3.9.9 tool configured in Jenkins
+    }
+
+    stages {
+        // Stage 1: Checkout the code from GitHub
+        stage('Checkout') {
+            steps {
+                git branch: 'anil-free', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
             }
         }
 
-        // Stage 3: Nexus Deploy & Tomcat Deploy in parallel
-        stage ('Nexus and Tomcat Deploy in Parallel') {
-            parallel {
-                stage ('Nexus Deploy') {
-                    steps {
-                        echo "📦 Deploying to Nexus..."
-                        sh 'mvn clean deploy'
-                        sh '''
-                            curl -u admin:apple \
-                            --upload-file /var/lib/jenkins/workspace/Anil-Pipeline-Job/target/maven-web-application.war \
-                            "http://13.233.104.113:9090/manager/text/deploy?path=/maven-web-application&update=true"
-                        '''
+        // Stage 2: Nexus and Tomcat deploy (Run in parallel)
+        stage('Nexus and Tomcat') {
+            steps {
+                parallel (
+                    "Backup for Nexus": {
+                        sh "mvn clean deploy"  
+                    },
+                    "Deploy to Tomcat": {
+                        sh """   curl -u anil:apple \
+                                --upload-file /var/lib/jenkins/workspace/anil-scripted-job/target/maven-web-application.war \
+                                "http://13.204.84.180:9090/manager/text/deploy?path=/maven-web-application&update=true"
+                            """
                     }
-                }
+                )
             }
         }
     }
