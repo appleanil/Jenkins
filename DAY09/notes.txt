@@ -57,16 +57,19 @@ pipeline {
                   git branch: 'anil-free', url: 'https://github.com/appleanil/maven-webapplication-project-kkfunda.git'
               } //steps ending
           }  //stage ending
+
           stage ('sonarQube') {
               steps {
                   sh "mvn clean sonar:sonar"
               } //steps ending
           } //stage ending
+
           stage ('swiss-uat') {
               steps {
                   build job: 'swiss-uat', wait: false //downstream
               } //steps ending
           } //stage ending
+
         } // stages ending
     } //pipeline ending
 
