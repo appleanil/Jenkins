@@ -33,7 +33,8 @@ Cons: Requires proper webhook configuration.
 webhook congiguration
 ====================== 
  setup build config -> click -GitHub Webhook
-Go to ->github ->select your repository  nd branch -> on right side click on settings->select webhooks -> payload block  fill the jenkins <url>http://65.1.95.162:8080/github-webhook/
+Go to ->github ->select your repository  nd branch -> on right side click on settings->select webhooks -> payload block  
+fill the jenkins <url>http://65.1.95.162:8080/github-webhook/
 and select contextpath : json --> click addit
 
 
