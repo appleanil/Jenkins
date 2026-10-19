@@ -34,21 +34,7 @@ webhook congiguration
 ====================== 
  setup build config -> click -GitHub Webhook
 Go to ->github ->select your repository  nd branch -> on right side click on settings->select webhooks -> payload block  fill the jenkins <url>http://65.1.95.162:8080/github-webhook/
-
-nd select contextpath : json --> click addit
-
-
-
-
-
-
-
-
-
-
-
-
-
+and select contextpath : json --> click addit
 
 
 Code Coverage
@@ -66,21 +52,11 @@ NOTE:Set Jenkins to fail builds if coverage is below 80%
 
 
 
-
-
-
-
-
-
-
-
-
 discard old builds
 ===================
 
 create an another job with same configuration of other job
 ==========================================================
-
 
 
 Jenkins server stop and start issue
@@ -92,7 +68,6 @@ new: 65.2.171.155
 
 
 /var/lib/jenkins/jenkins.model.jenconf.xml   ---> update new ip here and restart jenkins
-
 
 
 Plugins in jenkins server
@@ -131,16 +106,13 @@ NOTE: for safeRestart we have plugin called as a safeRestart, Install and try it
 
 
 
-
 next Build Number
 =================
 
 --> After insatlling this plugin we can give our own build number, The next number must be greater than the previous build number only.
 
-NOTE: in linux server /var/lib/jenkins/jobs/jio-dev/jobs/nextBuildNumber file is available , But some time times we dont have an access to linux server to use this
-
-
-
+NOTE: in linux server /var/lib/jenkins/jobs/jio-dev/jobs/nextBuildNumber file is available , But some time times we dont have an access to 
+linux server to use this
 
 
 JaCoCo
@@ -165,7 +137,6 @@ I will help us to track the jenkins activity like create,delete jobs, etc
     Log file count: 5
 
 
-
 audit-trail.log.0  
 
 audit-trail.log.1
@@ -176,24 +147,12 @@ audit-trail.log.3
 
 audit-trail.log.4
 
-
-
-
-
 tail -f audit-trail.log.0  --> go and trigger the build
-
-
-
-
-
 
 
 
 Blue ocean plugin
 =================
-
-
-
 
 Build name and Description setter
 ================================
@@ -204,12 +163,6 @@ step 2 : Dash board --> job --> configuration --> Build Environment --> select S
 
 
 
-
-
-
-
-
-
 Thin backup 
 ===========
 will discuss in jenkins backup
@@ -217,9 +170,6 @@ will discuss in jenkins backup
 Role based authentication
 =========================
 will discuss in jenkins security
-
-
-
 
 =====================================================================================
 
@@ -243,7 +193,6 @@ NOTE: under the source code section pass the names
 
 How to create a view?
 =====================
-
 
 enable and diable the project(jobs)
 ====================================
