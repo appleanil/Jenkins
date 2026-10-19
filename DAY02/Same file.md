@@ -2,7 +2,7 @@
 
 ## 1. Objective
 
-Install and integrate the following DevOps tools with Jenkins and automate a Java web application's build, code analysis, artifact publishing, deployment, and email notification.
+Install and integrate the following DevOps tools and automate a Java web application's build, analysis, artifact publishing, deployment, and email notification.
 
 - GitHub — Source Code Management
 - Maven — Build Automation
@@ -10,7 +10,7 @@ Install and integrate the following DevOps tools with Jenkins and automate a Jav
 - Nexus Repository — Artifact Management
 - Apache Tomcat — Application Deployment
 - Jenkins — CI/CD Automation
-- Email — Build and Deployment Notifications
+- Email — Notifications
 
 ## 2. Complete CI/CD Architecture
 
@@ -21,79 +21,326 @@ Developer
  GitHub Repository
     |
     v
- Jenkins Freestyle Job
+ Jenkins
     |
     v
- Maven: Clean + Package + Tests
+ Maven Build + Tests
     |
     v
- SonarQube: Code Analysis
+ SonarQube Analysis
     |
     v
- Nexus: Publish Artifact
+ Nexus Artifact Publishing
     |
     v
- Tomcat: Deploy WAR
+ Tomcat Deployment
     |
     v
  Email Notification
 ```
 
-### Tool installation links
-
-| Tool | GitHub repository |
-|---|---|
-| SonarQube | https://github.com/SonarSource/docker-sonarqube |
-| Nexus Repository | https://github.com/sonatype/nexus-public |
-| Nexus installer | https://github.com/sonatype-nexus-community/nexus-repository-installer |
-| Apache Tomcat | https://github.com/apache/tomcat |
-| Jenkins | https://github.com/jenkinsci/jenkins |
-
-Use the repositories' README files for installation instructions. Choose compatible Java, operating system, and product versions. For production deployments, follow the product's official installation and security documentation as well.
-
 ---
 
 # 3. Install Git on the Jenkins Server
 
-Git is required for Jenkins to check out the application source code.
-
-### RHEL / Amazon Linux
-
-```bash
-sudo yum install git -y
-git --version
-```
-
-On distributions that use `dnf`:
+For Amazon Linux 2023 or a compatible RHEL-based distribution:
 
 ```bash
 sudo dnf install git -y
 git --version
 ```
 
-### Ubuntu / Debian
+For Amazon Linux 2:
 
 ```bash
-sudo apt update
-sudo apt install git -y
+sudo yum install git -y
 git --version
 ```
 
-If Jenkins uses a separate build agent, ensure Git is installed on the agent that executes the checkout.
+Git must be installed on the Jenkins agent that performs the checkout.
 
 ---
 
-# 4. Create a Jenkins Freestyle Job
+# 4. Install Jenkins on AWS EC2
 
-### Step 1: Create the job
+### Step 1: Launch EC2
 
-1. Open the Jenkins Dashboard.
+Launch an Amazon Linux 2023 instance, connect through SSH, and run:
+
+```bash
+sudo dnf update -y
+sudo dnf install fontconfig java-21-openjdk wget git -y
+java -version
+```
+
+Confirm that Java 21 is supported by the Jenkins release you install.
+
+### Step 2: Configure the Jenkins repository
+
+```bash
+sudo wget -O /etc/yum.repos.d/jenkins.repo \
+  https://pkg.jenkins.io/redhat-stable/jenkins.repo
+
+sudo rpm --import \
+  https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+```
+
+### Step 3: Install Jenkins
+
+```bash
+sudo dnf install jenkins -y
+sudo systemctl daemon-reload
+sudo systemctl enable --now jenkins
+```
+
+### Step 4: Verify Jenkins
+
+```bash
+sudo systemctl status jenkins
+sudo journalctl -u jenkins -n 50 --no-pager
+```
+
+### Step 5: Configure the Security Group
+
+Allow TCP port `8080` from your trusted IP address.
+
+Open Jenkins:
+
+```text
+http://<JENKINS-PUBLIC-IP>:8080/
+```
+
+Retrieve the initial administrator password:
+
+```bash
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+
+Complete the browser setup, install suggested plugins, and create your own secure administrator account.
+
+---
+
+# 5. Install Maven in Jenkins
+
+### Recommended method: Jenkins-managed Maven
+
+1. Open **Manage Jenkins → Tools**.
+2. Find **Maven installations**.
+3. Click **Add Maven**.
+4. Enter the installation name:
+
+```text
+maven-3.9.9
+```
+
+5. Select Maven 3.9.9 and enable automatic installation if required.
+6. Save the configuration.
+
+Verify the installation in a job or pipeline using:
+
+```bash
+mvn -version
+```
+
+If using Jenkins-managed tools, use the Maven installation configured in Jenkins rather than assuming that `mvn` is available globally.
+
+---
+
+# 6. Install SonarQube Using Docker
+
+The following example uses Docker on an Amazon Linux 2023 EC2 instance. SonarQube requires sufficient memory and appropriate Linux kernel settings.
+
+### Step 1: Install Docker
+
+```bash
+sudo dnf install docker -y
+sudo systemctl enable --now docker
+sudo docker --version
+```
+
+### Step 2: Configure the kernel setting
+
+SonarQube's Elasticsearch component requires appropriate virtual-memory settings.
+
+```bash
+sudo sysctl -w vm.max_map_count=524288
+```
+
+To persist this setting across reboots:
+
+```bash
+echo 'vm.max_map_count=524288' |
+  sudo tee /etc/sysctl.d/99-sonarqube.conf
+
+sudo sysctl --system
+```
+
+Check the setting:
+
+```bash
+sysctl vm.max_map_count
+```
+
+### Step 3: Start SonarQube
+
+```bash
+sudo docker volume create sonarqube_data
+sudo docker volume create sonarqube_extensions
+sudo docker volume create sonarqube_logs
+```
+
+Run the Community Build image:
+
+```bash
+sudo docker run -d \
+  --name sonarqube \
+  --restart unless-stopped \
+  -p 9000:9000 \
+  -v sonarqube_data:/opt/sonarqube/data \
+  -v sonarqube_extensions:/opt/sonarqube/extensions \
+  -v sonarqube_logs:/opt/sonarqube/logs \
+  sonarqube:lts-community
+```
+
+### Step 4: Check the container
+
+```bash
+sudo docker ps
+sudo docker logs -f sonarqube
+```
+
+Open:
+
+```text
+http://<SONARQUBE-PUBLIC-IP>:9000/
+```
+
+Sign in using the initial credentials specified by the product's setup instructions and change the default password.
+
+**Important:** Allow TCP port `9000` only from trusted networks. For production, configure HTTPS and persistent storage, and review the memory, database, backup, and security requirements before deployment.
+
+---
+
+# 7. Install Nexus Repository Using Docker
+
+This example uses the Nexus Repository 3 container image. Verify the current licensing, image availability, and supported deployment instructions before using it in production.
+
+### Step 1: Create persistent storage
+
+```bash
+sudo docker volume create nexus_data
+```
+
+### Step 2: Run Nexus Repository
+
+```bash
+sudo docker run -d \
+  --name nexus \
+  --restart unless-stopped \
+  -p 8081:8081 \
+  -v nexus_data:/nexus-data \
+  sonatype/nexus3
+```
+
+### Step 3: Verify the container
+
+```bash
+sudo docker ps
+sudo docker logs -f nexus
+```
+
+### Step 4: Retrieve the initial administrator password
+
+```bash
+sudo docker exec nexus \
+  cat /nexus-data/admin.password
+```
+
+If the file is no longer present, the initial setup may already have been completed.
+
+### Step 5: Open Nexus
+
+```text
+http://<NEXUS-PUBLIC-IP>:8081/
+```
+
+Sign in using the initial password and complete the setup wizard.
+
+### Step 6: Create Maven repositories
+
+In the Nexus interface, create or verify these repositories:
+
+- `jio-release` — Maven hosted release repository.
+- `jio-snapshot` — Maven hosted snapshot repository.
+
+Allow TCP port `8081` only from trusted networks. Use HTTPS and secure credentials when configuring production access.
+
+---
+
+# 8. Install Apache Tomcat Using Docker
+
+This example uses Tomcat 9, which is appropriate only for applications compatible with its Servlet/JSP specifications. Choose the Tomcat version that matches your application's requirements.
+
+### Step 1: Create persistent application storage
+
+```bash
+sudo docker volume create tomcat_webapps
+```
+
+### Step 2: Start Tomcat
+
+Jenkins commonly uses port `8080`. To avoid a conflict when Tomcat runs on the same Docker host, expose Tomcat on host port `9090`:
+
+```bash
+sudo docker run -d \
+  --name tomcat \
+  --restart unless-stopped \
+  -p 9090:8080 \
+  -v tomcat_webapps:/usr/local/tomcat/webapps \
+  tomcat:9.0-jdk21-temurin
+```
+
+### Step 3: Verify Tomcat
+
+```bash
+sudo docker ps
+sudo docker logs -f tomcat
+```
+
+Test the HTTP endpoint:
+
+```bash
+curl -I http://localhost:9090/
+```
+
+Open:
+
+```text
+http://<TOMCAT-PUBLIC-IP>:9090/
+```
+
+**Important:** A Tomcat image may not include the Manager application by default. For deployment through the Manager API, install and configure the appropriate Manager application, access restrictions, and authorized credentials. Do not expose the Manager interface to the public internet.
+
+For production, use an appropriately secured deployment process and persistent storage.
+
+---
+
+# 9. Create a Jenkins Freestyle Job
+
+## Step 1: Create the job
+
+1. Open Jenkins Dashboard.
 2. Click **New Item**.
-3. Enter the item name: `jio-dev`.
+3. Enter the job name:
+
+```text
+jio-dev
+```
+
 4. Select **Freestyle project**.
 5. Click **OK**.
 
-### Step 2: Configure the description
+## Step 2: Add a description
 
 Under **General**, enter:
 
@@ -102,7 +349,7 @@ Java web application CI/CD job using GitHub, Maven,
 SonarQube, Nexus Repository and Tomcat.
 ```
 
-### Step 3: Configure GitHub
+## Step 3: Configure GitHub
 
 Under **Source Code Management**:
 
@@ -113,240 +360,127 @@ Under **Source Code Management**:
 https://github.com/appleanil/maven-webapplication-project-kkfunda.git
 ```
 
-3. Configure credentials if the repository is private.
+3. Add credentials if the repository is private.
 4. Under **Branches to build**, enter:
 
 ```text
 */development
 ```
 
-This assumes the repository has a branch named `development`. The branch name must match the actual GitHub branch.
+The branch must exist in your GitHub repository.
 
 5. Save the configuration.
 
-### Step 4: Verify the checkout
+## Step 4: Configure Maven build
 
-Click **Build Now**.
+Under **Build Steps**:
 
-Open the job and select **Console Output**.
-
-If checkout fails, check:
-
-- Git installation.
-- Repository URL.
-- Branch name.
-- Jenkins Git plugin.
-- Repository credentials and network access.
-
----
-
-# 5. Configure Maven in Jenkins
-
-## Why configure Maven in Jenkins?
-
-Jenkins can use a configured Maven installation to execute builds. You do not have to install and maintain a separate manually configured Maven installation for every job.
-
-Jenkins-managed tool installations may download Maven to a directory on the controller or build agent, depending on the configuration. Maven can also be installed separately on an agent and configured by its installation path.
-
-### Step 1: Configure Maven
-
-1. Open **Manage Jenkins**.
-2. Select **Tools**.
-3. Find **Maven installations**.
-4. Click **Add Maven**.
-5. Set the name to:
-
-```text
-maven-3.9.9
-```
-
-6. Select the desired Maven version.
-7. Enable automatic installation if required.
-8. Save the configuration.
-
-### Step 2: Add Maven to the Freestyle job
-
-1. Open `jio-dev`.
-2. Click **Configure**.
-3. Scroll to **Build Steps**.
-4. Click **Add build step**.
-5. Select **Invoke top-level Maven targets**.
-6. Select `maven-3.9.9` as the Maven version.
-7. Enter the goals:
+1. Click **Add build step**.
+2. Select **Invoke top-level Maven targets**.
+3. Select the configured Maven version.
+4. Enter:
 
 ```text
 clean package
 ```
 
-8. Save the configuration.
-9. Click **Build Now**.
+5. Save the configuration and click **Build Now**.
 
-### Step 3: Verify the build artifact
+## Step 5: Verify the WAR file
 
-The project may generate a WAR file under:
-
-```text
-/var/lib/jenkins/workspace/jio-dev/target/
-```
-
-Example:
+The workspace is commonly located at:
 
 ```text
-/var/lib/jenkins/workspace/jio-dev/target/maven-web-application.war
+/var/lib/jenkins/workspace/jio-dev/
 ```
 
-The actual filename depends on the project's `pom.xml`.
-
-### Common build failure
-
-If Maven is not configured correctly, check the console output and verify the selected Maven installation. You can also inspect the configured Maven version using:
+Check the artifact directory:
 
 ```bash
-mvn -version
+ls -lh /var/lib/jenkins/workspace/jio-dev/target/
 ```
 
-This command works only if Maven is available in the shell's `PATH`.
+Example artifact:
+
+```text
+maven-web-application.war
+```
+
+The exact filename depends on the project's `pom.xml`.
 
 ---
 
-# 6. Integrate SonarQube with Jenkins
+# 10. Integrate SonarQube with Jenkins
 
-## Objective
+### Step 1: Install the Jenkins plugin
 
-Analyze application code and display quality results in SonarQube.
+Open **Manage Jenkins → Plugins**, search for **SonarQube Scanner**, and install it.
 
-### Step 1: Install SonarQube
+### Step 2: Configure the server
 
-GitHub repository:
+Open **Manage Jenkins → System** and add a SonarQube server.
 
-https://github.com/SonarSource/docker-sonarqube
-
-Follow its README for the Docker-based installation. If installing directly on a Linux server, use the appropriate SonarQube installation documentation instead.
-
-For a typical standalone SonarQube web interface, the default URL is:
+Example configuration:
 
 ```text
-http://<SONARQUBE-IP>:9000/
+Name: SonarQubeServer
+URL: http://<SONARQUBE-HOST>:9000
 ```
 
-Replace the placeholder with the actual server address.
+Select a Jenkins credential containing a SonarQube token.
 
-### Step 2: Install the Jenkins plugin
+### Step 3: Run analysis
 
-1. Open **Manage Jenkins**.
-2. Select **Plugins**.
-3. Search for **SonarQube Scanner**.
-4. Install the plugin.
-5. Restart Jenkins if the installation process requires it.
-
-### Step 3: Configure the SonarQube server
-
-1. Open **Manage Jenkins → System**.
-2. Find **SonarQube servers**.
-3. Add a server configuration.
-4. Set the name to:
-
-```text
-SonarQubeServer
-```
-
-5. Enter the actual SonarQube server URL.
-6. Select a Jenkins credential containing the SonarQube token.
-7. Save the configuration.
-
-Do not store the SonarQube authentication token in the public Git repository.
-
-### Step 4: Configure Maven analysis
-
-For a Maven project, the analysis can be triggered using the SonarQube Maven goal.
-
-Example Maven goals:
+For a Maven project, configure the Maven goal:
 
 ```text
 clean package sonar:sonar
 ```
 
-The SonarQube Maven plugin must be available and compatible with the project. Depending on the plugin and server configuration, you may need to configure the project key, server URL, authentication, and Java version.
+The SonarQube Maven plugin must be available, and the project key, server configuration, authentication, and Java compatibility must be correct.
 
-A server URL can be configured in `pom.xml` as a non-secret property, or supplied through the build configuration. Keep credentials in Jenkins credentials.
+### Step 4: Verify
 
-### Step 5: Run the job
+1. Save the Jenkins job.
+2. Click **Build Now**.
+3. Review **Console Output**.
+4. Open SonarQube and verify the analysis result.
 
-1. Open `jio-dev`.
-2. Click **Configure**.
-3. Update the Maven build goals to include the SonarQube analysis.
-4. Save the job.
-5. Click **Build Now**.
-6. Open **Console Output**.
-7. Open SonarQube and verify the project analysis.
-
-### Best practice
-
-Configure a SonarQube quality gate and make the pipeline fail when the required quality conditions are not met. A successful analysis alone does not necessarily mean the project passed the quality gate.
+For a production pipeline, configure and enforce the quality gate before artifact publication or deployment.
 
 ---
 
-# 7. Integrate Nexus Repository with Jenkins
+# 11. Integrate Nexus Repository with Jenkins
 
-## Objective
+## Step 1: Configure `pom.xml`
 
-Publish versioned JAR or WAR artifacts to Nexus so that they can be stored and retrieved for deployment.
-
-### Step 1: Install Nexus Repository
-
-GitHub repositories:
-
-- https://github.com/sonatype/nexus-public
-- https://github.com/sonatype-nexus-community/nexus-repository-installer
-
-Follow the selected repository's instructions and confirm that the Nexus version, installation method, and Java requirements are compatible.
-
-### Step 2: Create Maven repositories
-
-In the Nexus interface, create or verify the required Maven repositories.
-
-For this example, the repository names are:
-
-```text
-jio-release
-jio-snapshot
-```
-
-The release repository stores release versions, while the snapshot repository stores development snapshot versions.
-
-Repository names and URLs must match your Nexus configuration.
-
-### Step 3: Configure `distributionManagement` in `pom.xml`
-
-Add the following inside the root `<project>` element:
+Add this inside the root `<project>` element:
 
 ```xml
 <distributionManagement>
     <repository>
         <id>nexus</id>
-        <name>KK FUNDA Releases Nexus Repository</name>
-        <url>http://<NEXUS-HOST>:8081/repository/jio-release/</url>
+        <name>KK FUNDA Releases</name>
+        <url>http://&lt;NEXUS-HOST&gt;:8081/repository/jio-release/</url>
     </repository>
 
     <snapshotRepository>
         <id>nexus</id>
-        <name>KK FUNDA Snapshot Nexus Repository</name>
-        <url>http://<NEXUS-HOST>:8081/repository/jio-snapshot/</url>
+        <name>KK FUNDA Snapshots</name>
+        <url>http://&lt;NEXUS-HOST&gt;:8081/repository/jio-snapshot/</url>
     </snapshotRepository>
 </distributionManagement>
 ```
 
-Replace `<NEXUS-HOST>` with your actual Nexus hostname or IP address.
+Replace the placeholder with the actual Nexus hostname or IP address.
 
-**Important:** Use HTTPS for repository access wherever possible, particularly when credentials are transmitted.
+Use HTTPS for secure repository access whenever possible.
 
-### Step 4: Configure Nexus credentials
+## Step 2: Configure Maven credentials
 
-Maven uses `settings.xml` to store server authentication details.
+Maven's `settings.xml` should contain a matching server ID.
 
-A common settings file for a Maven installation managed by Jenkins might be located under the Maven installation's `conf/` directory. However, a better practice is to use a dedicated Maven settings file with controlled permissions and inject it into the build through Jenkins credentials or an approved configuration mechanism.
-
-Example server configuration:
+Example:
 
 ```xml
 <settings>
@@ -360,141 +494,93 @@ Example server configuration:
 </settings>
 ```
 
-Replace the placeholders with credentials supplied securely. Do not commit this file with real passwords to GitHub.
+Replace the placeholders with securely managed credentials. Never commit real passwords to GitHub.
 
-The server `<id>` must match the repository `<id>` in `distributionManagement`.
-
-### Step 5: Locate Maven settings files
-
-To find settings files on Linux:
+Locate existing Maven settings files:
 
 ```bash
 find / -name settings.xml 2>/dev/null
 ```
 
-This can return several results, including global and user settings. Verify which settings file your Jenkins build actually uses.
+Verify which file is used by the Jenkins build. A dedicated settings file supplied through Jenkins credentials is preferable to editing a shared Maven installation's global configuration.
 
-### Step 6: Configure the Maven deployment goal
+## Step 3: Publish the artifact
 
-In the Freestyle job:
-
-1. Open `jio-dev`.
-2. Click **Configure**.
-3. Under **Build Steps**, configure the Maven invocation.
-4. Ensure the Nexus credentials and settings file are available.
-5. Set the goals to:
+Configure the Maven deployment goal:
 
 ```text
 clean deploy
 ```
 
-If you also need SonarQube analysis, configure the analysis step and quality-gate handling separately.
+Run the job and inspect Console Output.
 
-### Step 7: Verify the Nexus upload
+Verify the artifact in Nexus under the appropriate release or snapshot repository.
 
-Click **Build Now**.
-
-Open the Console Output and look for a successful Maven deployment. Then open Nexus and verify that the expected artifact and version appear in the appropriate repository.
-
-**Important:** Maven's `deploy` phase publishes artifacts to a Maven repository; it does not deploy the application to Tomcat.
+**Note:** Maven `deploy` publishes artifacts to a Maven repository. It does not deploy the application to Tomcat.
 
 ---
 
-# 8. Integrate Tomcat with Jenkins
+# 12. Integrate Tomcat with Jenkins
 
-## Objective
+## Step 1: Install the deployment plugin
 
-Deploy the generated WAR file to Tomcat after the build and quality checks succeed.
+Open **Manage Jenkins → Plugins** and install **Deploy to container**.
 
-### Step 1: Install Tomcat
+## Step 2: Configure the job
 
-GitHub repository:
+Open `jio-dev` and click **Configure**.
 
-https://github.com/apache/tomcat
+Under **Post-build Actions**:
 
-Use the repository's README and the official Tomcat documentation to choose the correct release and installation method.
-
-Confirm that the Tomcat server is running and reachable from the Jenkins agent.
-
-### Step 2: Install the Jenkins plugin
-
-1. Open **Manage Jenkins → Plugins**.
-2. Search for **Deploy to container**.
-3. Install the plugin.
-4. Restart Jenkins if required.
-
-### Step 3: Configure Tomcat credentials
-
-Create a Jenkins username/password credential for an authorized Tomcat Manager account.
-
-Configure Tomcat with the required Manager application and permissions. Do not expose Manager access unnecessarily or reuse insecure example passwords.
-
-### Step 4: Configure the deployment action
-
-1. Open the `jio-dev` job.
-2. Click **Configure**.
-3. Find **Post-build Actions**.
-4. Select **Deploy war/ear to a container**.
-5. Set the WAR file path relative to the workspace:
+1. Select **Deploy war/ear to a container**.
+2. Enter the WAR file pattern:
 
 ```text
 **/maven-web-application.war
 ```
 
-6. Under **Containers**, select the Tomcat version compatible with your deployment plugin.
-7. Enter the Tomcat URL, for example:
+3. Select a Tomcat version compatible with the installed plugin.
+4. Configure the Tomcat URL:
 
 ```text
-http://<TOMCAT-HOST>:8080/
+http://<TOMCAT-HOST>:9090/
 ```
 
-8. Select the configured Tomcat credentials.
-9. Save the job.
+5. Select the Jenkins credential for an authorized Tomcat Manager account.
+6. Save the job.
 
-The plugin's supported Tomcat versions and connection requirements depend on its installed version.
+## Step 3: Deploy and verify
 
-### Step 5: Run the job
+Click **Build Now** and inspect Console Output.
 
-1. Click **Build Now**.
-2. Open **Console Output**.
-3. Verify the deployment result.
-4. Open the application URL:
+Test the deployed application:
 
 ```text
-http://<TOMCAT-HOST>:8080/maven-web-application/
+http://<TOMCAT-HOST>:9090/maven-web-application/
 ```
 
-The context path depends on the deployed WAR name or the deployment configuration.
+The context path depends on the deployment configuration and application name.
 
 ---
 
-# 9. Configure Email Notifications
+# 13. Configure Email Notifications
 
-## Objective
-
-Notify stakeholders when the build or deployment succeeds or fails.
-
-### Step 1: Configure SMTP
+## Step 1: Configure SMTP
 
 1. Open **Manage Jenkins → System**.
-2. Configure the email extension or mail settings.
-3. Enter the SMTP server and port.
-4. Configure authentication and TLS according to your email provider.
+2. Configure the mail server.
+3. Enter the SMTP host and port.
+4. Configure authentication and TLS.
 5. Store credentials securely.
-6. Send a test email if the configured plugin supports it.
+6. Test email delivery if supported.
 
-### Step 2: Configure the job
+## Step 2: Configure the job
 
-In the Freestyle job:
+Under the Freestyle job's **Post-build Actions**, add the required email notification action.
 
-1. Click **Configure**.
-2. Find **Post-build Actions**.
-3. Add an email notification or email-ext action.
-4. Configure recipients.
-5. Select the required triggers, such as failure or success.
-6. Save the job.
+Configure recipients and success/failure triggers.
 
-### Example notification
+Example message:
 
 ```text
 Subject: Jenkins Build Status - jio-dev
@@ -503,74 +589,71 @@ Job: jio-dev
 Build Number: <BUILD_NUMBER>
 Status: <BUILD_STATUS>
 
-Please review the Jenkins Console Output for details.
+Review Jenkins Console Output for details.
 ```
 
-The placeholders above describe the intended notification content; configure the corresponding Jenkins variables or plugin tokens when building the actual email template.
+Configure the plugin's supported variables or tokens to populate the actual build number and status.
 
 ---
 
-# 10. Automate the Entire Process
+# 14. Automate the Entire CI/CD Workflow
 
-## Recommended Freestyle Job Configuration
+Recommended sequence:
 
-For a Freestyle project, a maintainable setup is to use distinct build steps and post-build actions, or to use a Jenkins Pipeline when more advanced stage control is required.
-
-| Order | Stage / Action | Tool | Purpose |
+| Order | Stage | Tool | Purpose |
 |---:|---|---|---|
-| 1 | Source Code Management | Git | Check out `development` |
-| 2 | Build and Test | Maven | `clean package` |
-| 3 | Code Analysis | SonarQube | Analyze source code and enforce the quality gate |
-| 4 | Publish Artifact | Nexus | `deploy` to the configured Maven repository |
-| 5 | Application Deployment | Tomcat | Deploy the WAR file |
-| 6 | Notification | Email | Notify stakeholders of the result |
-
-### Execution sequence
+| 1 | Source checkout | GitHub | Retrieve application code |
+| 2 | Build and tests | Maven | Compile, test, package |
+| 3 | Code analysis | SonarQube | Analyze quality and security findings |
+| 4 | Quality gate | SonarQube/Jenkins | Stop if required checks fail |
+| 5 | Artifact publishing | Nexus | Store the versioned artifact |
+| 6 | Application deployment | Tomcat | Deploy the approved WAR |
+| 7 | Notification | Email | Notify stakeholders |
 
 ```text
-Git Checkout
-     |
-     v
-Maven Build and Tests
-     |
-     v
+GitHub
+   |
+   v
+Jenkins Checkout
+   |
+   v
+Maven Build + Tests
+   |
+   v
 SonarQube Analysis
-     |
-     v
+   |
+   v
 Quality Gate
-     |
-     v
-Nexus Artifact Publishing
-     |
-     v
+   |
+   v
+Nexus Publishing
+   |
+   v
 Tomcat Deployment
-     |
-     v
+   |
+   v
 Email Notification
 ```
 
-Configure the job so that a failed required build, test, analysis, or publishing step prevents later deployment steps from running.
+A Freestyle job can automate these steps through build steps and post-build actions. For complex workflows with explicit stages, approvals, quality-gate enforcement, and artifact promotion, a Jenkins Pipeline is often easier to maintain.
 
 ---
 
-# 11. Common Troubleshooting
+# 15. Troubleshooting Reference
 
-| Problem | Troubleshooting |
+| Issue | What to check |
 |---|---|
-| Git checkout fails | Check Git installation, repository URL, branch and credentials |
-| Maven command fails | Check the configured Maven version, JDK, `pom.xml` and dependencies |
-| SonarQube analysis fails | Check server URL, token, scanner configuration and network access |
-| SonarQube project is missing | Check the project key, analysis logs and selected server |
-| Nexus deployment fails | Check repository URL, artifact version, settings file, credentials and repository permissions |
-| Tomcat deployment fails | Check WAR path, Tomcat Manager access, credentials, version compatibility and network rules |
-| Email is not received | Check SMTP settings, credentials, TLS and Jenkins email logs |
-| Build succeeds but application returns 404 | Check deployment status, context path and Tomcat logs |
+| Git checkout failure | Git installation, repository URL, branch, credentials |
+| Maven build failure | JDK, Maven version, dependencies, tests, `pom.xml` |
+| SonarQube failure | Server URL, token, scanner configuration, network |
+| Nexus upload failure | Repository URL, server ID, credentials, repository permissions |
+| Tomcat deployment failure | WAR path, Manager access, credentials, port, network |
+| Jenkins UI unavailable | Service status, port 8080, firewall, Security Group |
+| Email not received | SMTP settings, authentication, TLS, notification triggers |
 
----
+## Final Interview Answer
 
-# 12. Final Interview Explanation
+"In my CI/CD workflow, developers push code to GitHub, and Jenkins checks out the selected branch. Maven builds the Java application, runs automated tests, and generates a WAR file. SonarQube analyzes the source code and the quality gate controls whether the pipeline proceeds. Maven publishes the approved artifact to Nexus, and Jenkins deploys it to Tomcat. Finally, Jenkins sends email notifications with the build and deployment status.
 
-"In my project, I use Jenkins to automate the CI/CD process. The job checks out source code from the development branch in GitHub, builds and tests the application using Maven, and analyzes the code through SonarQube. If the required quality gate passes, Maven publishes the versioned artifact to Nexus. Jenkins then deploys the WAR file to Tomcat and sends email notifications with the build and deployment status.
-
-I configure the required tool installations and credentials in Jenkins, verify each stage through Console Output, and troubleshoot failures using build logs, repository configuration, network connectivity, and application logs."
+I configure the required tools and credentials in Jenkins, verify each stage through Console Output, and troubleshoot issues using the relevant build logs, repository configuration, network connectivity, and application logs."
 
