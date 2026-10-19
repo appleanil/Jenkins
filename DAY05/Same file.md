@@ -1,3 +1,7 @@
+# Blog url:
+```
+https://blog.kkdevops.com/jenkins-scripted-pipeline-a-complete-step-by-step-guide-for-real-ci-cd/
+```
 మీరు ఇచ్చిన Jenkins Scripted Pipeline లో Slack notifications configure చేయడానికి కొన్ని ముఖ్యమైన corrections అవసరం. ముఖ్యంగా, build fail అయినప్పుడు error‌ను దాచకుండా మళ్లీ throw చేయాలి, Slack notification color variable సరిచేయాలి, అలాగే credentials‌ను pipeline code‌లో hardcode చేయకూడదు.
 
 ## 1. Slack configuration
