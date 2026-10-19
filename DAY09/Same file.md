@@ -1,3 +1,7 @@
+# Blog URL:
+```
+https://blog.kkdevops.com/jenkins-ci-cd-upstream-downstream-triggers-parallel-execution-shared-libraries/
+```
 # Jenkins Upstream, Downstream, and Parallel Execution
 
 ## 1. Upstream and Downstream Jobs
